@@ -71,15 +71,20 @@ var (
 	Volume int // change audio volume (256=normal)
 
 	OpusEncoder *gopus.Encoder
+	OpusDecoder *gopus.Decoder
 
 	InFile      string
 	CoverFormat string = "jpeg"
+	Mode		string = "encode"
 
 	OutFile string = "pipe:1"
 	OutBuf  []byte
 
 	EncodeChan chan []int16
-	OutputChan chan []byte
+	DecodeChan chan []byte
+
+	EncodeOutputChan chan []byte
+	DecodeOutputChan chan []int16
 
 	err error
 
@@ -98,6 +103,7 @@ func init() {
 	flag.BoolVar(&RawOutput, "raw", false, "Raw opus output (no metadata or magic bytes)")
 	flag.StringVar(&Application, "aa", "audio", "audio application can be voip, audio, or lowdelay")
 	flag.StringVar(&CoverFormat, "cf", "jpeg", "format the cover art will be encoded with")
+	flag.StringVar(&Mode, "mode", "encode", "either encode or decode")
 
 	if len(os.Args) < 2 {
 		flag.Usage()
@@ -159,6 +165,13 @@ func main() {
 		return
 	}
 
+	// create an opusDecoder to use
+	OpusDecoder, err = gopus.NewDecoder(FrameRate, Channels)
+	if err != nil {
+		fmt.Println("NewDecoder Error:", err)
+		return
+	}
+
 	// set opus encoding options
 	//	OpusEncoder.SetVbr(true)                // bool
 
@@ -178,8 +191,28 @@ func main() {
 		OpusEncoder.SetApplication(gopus.Audio)
 	}
 
-	OutputChan = make(chan []byte, 10)
 	EncodeChan = make(chan []int16, 10)
+	EncodeOutputChan = make(chan []byte, 10)
+
+	DecodeChan = make(chan []byte, 10)
+	DecodeOutputChan = make(chan []int16, 10)
+
+	if Mode == "decode" {
+		// todo decode
+
+		wg.Add(1)
+		go decodeReader()
+
+		wg.Add(1)
+		go decoder()
+
+		wg.Add(1)
+		go decodeWriter()
+
+		wg.Wait()
+
+		return
+	}
 
 	if RawOutput == false {
 		// Setup the metadata
@@ -297,20 +330,20 @@ func main() {
 	//////////////////////////////////////////////////////////////////////////
 
 	wg.Add(1)
-	go reader()
+	go encodeReader()
 
 	wg.Add(1)
 	go encoder()
 
 	wg.Add(1)
-	go writer()
+	go encodeWriter()
 
 	// wait for above goroutines to finish, then exit.
 	wg.Wait()
 }
 
 // reader reads from the input
-func reader() {
+func encodeReader() {
 
 	defer func() {
 		close(EncodeChan)
@@ -381,11 +414,11 @@ func reader() {
 }
 
 // encoder listens on the EncodeChan and encodes provided PCM16 data
-// to opus, then sends the encoded data to the OutputChan
+// to opus, then sends the encoded data to the EncodeOutputChan
 func encoder() {
 
 	defer func() {
-		close(OutputChan)
+		close(EncodeOutputChan)
 		wg.Done()
 	}()
 
@@ -403,14 +436,14 @@ func encoder() {
 			return
 		}
 
-		// write opus data to OutputChan
-		OutputChan <- opus
+		// write opus data to EncodeOutputChan
+		EncodeOutputChan <- opus
 	}
 }
 
-// writer listens on the OutputChan and writes the output to stdout pipe
+// writer listens on the EncodeOutputChan and writes the output to stdout pipe
 // TODO: Add support for writing directly to a file
-func writer() {
+func encodeWriter() {
 
 	defer wg.Done()
 
@@ -443,7 +476,7 @@ func writer() {
 	}
 
 	for {
-		opus, ok := <-OutputChan
+		opus, ok := <-EncodeOutputChan
 		if !ok {
 			// if chan closed, exit
 			return
@@ -465,3 +498,86 @@ func writer() {
 		}
 	}
 }
+
+func decodeReader() {
+	defer func() {
+		close(DecodeChan)
+		wg.Done()
+	}()
+
+	// 16KB input buffer
+	rbuf := bufio.NewReaderSize(os.Stdin, 16384)
+
+	// opuslen header
+	var opuslen int16
+
+	for {
+		err = binary.Read(rbuf, binary.LittleEndian, &opuslen)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return
+		}
+		if err != nil {
+			fmt.Println("error reading from stdin:", err)
+			return
+		}
+
+		InBuf := make([]byte, opuslen)
+		err = binary.Read(rbuf, binary.LittleEndian, &InBuf)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return
+		}
+		if err != nil {
+			fmt.Println("error reading from stdin:", err)
+			return
+		}
+
+		DecodeChan <- InBuf		
+	}
+}
+
+func decoder() {
+	defer func() {
+		close(DecodeOutputChan)
+		wg.Done()
+	}()
+
+	for {
+		opus, ok := <-DecodeChan
+		if !ok {
+			// if chan closed, exit
+			return
+		}
+
+		// tru decoding opus frame with Opus
+		pcm, err := OpusDecoder.Decode(opus, FrameSize, false)
+		if err != nil {
+			fmt.Println("Decoding Error:", err)
+			return
+		}
+
+		DecodeOutputChan <- pcm
+	}
+}
+
+func decodeWriter() {
+	defer wg.Done()
+
+	// 16KB output buffer
+	wbuf := bufio.NewWriterSize(os.Stdout, 16384)
+
+	for {
+		pcm, ok := <-DecodeOutputChan
+		if !ok {
+			// if chan closed, exit
+			return
+		}
+
+		// write pcm data to stdout
+		err = binary.Write(wbuf, binary.LittleEndian, &pcm)
+		if err != nil {
+			fmt.Println("error writing output:", err)
+			return
+		}
+	}
+}
+
