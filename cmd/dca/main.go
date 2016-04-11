@@ -235,12 +235,14 @@ func main() {
 				return
 			}
 
-			Metadata.SongInfo = &SongMetadata{
-				Title:    FFprobeData.Format.Tags.Title,
-				Artist:   FFprobeData.Format.Tags.Artist,
-				Album:    FFprobeData.Format.Tags.Album,
-				Genre:    FFprobeData.Format.Tags.Genre,
-				Comments: "", // change later?
+			if FFprobeData.Format.Tags != nil {
+				Metadata.SongInfo = &SongMetadata{
+					Title:    FFprobeData.Format.Tags.Title,
+					Artist:   FFprobeData.Format.Tags.Artist,
+					Album:    FFprobeData.Format.Tags.Album,
+					Genre:    FFprobeData.Format.Tags.Genre,
+					Comments: "", // change later?
+				}
 			}
 
 			Metadata.Origin = &OriginMetadata{
