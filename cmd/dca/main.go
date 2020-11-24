@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/layeh/gopus"
+	"layeh.com/gopus"
 )
 
 // Define constants
