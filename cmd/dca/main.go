@@ -24,11 +24,17 @@ const (
 	// The current version of the DCA format
 	FormatVersion int8 = 1
 
-	// The current version of the DCA program
+	// The name of the DCA distribution
+	ProgramName string = "dca_for_dphp"
+
+	// The current version of the DCA distribution
 	ProgramVersion string = "0.0.1"
 
-	// The URL to the GitHub repository of DCA
-	GitHubRepositoryURL string = "https://github.com/bwmarrin/dca"
+	// The URL to the GitHub repository of the DCA distribution
+	GitHubRepositoryURL string = "https://github.com/davidcole1340/dca"
+
+	// Name of the author(s) of the DCA distribution
+	ProgramAuthor string = "bwmarrin, davidcole1340"
 )
 
 // All global variables used within the program
@@ -207,10 +213,10 @@ func main() {
 			Dca: &DCAMetadata{
 				Version: FormatVersion,
 				Tool: &DCAToolMetadata{
-					Name:    "dca",
+					Name:    ProgramName,
 					Version: ProgramVersion,
 					Url:     GitHubRepositoryURL,
-					Author:  "bwmarrin",
+					Author:  ProgramAuthor,
 				},
 			},
 			SongInfo: &SongMetadata{},
