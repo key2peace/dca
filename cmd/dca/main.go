@@ -81,6 +81,7 @@ var (
 
 	OutFile string = "pipe:1"
 	OutBuf  []byte
+	Wait    bool
 
 	EncodeInputChan  chan []int16
 	EncodeOutputChan chan []byte
@@ -106,6 +107,7 @@ func init() {
 	flag.BoolVar(&RawOutput, "raw", false, "Raw opus output (no metadata or magic bytes)")
 	flag.StringVar(&Application, "aa", "audio", "audio application can be voip, audio, or lowdelay")
 	flag.StringVar(&CoverFormat, "cf", "jpeg", "format the cover art will be encoded with")
+	flag.BoolVar(&Wait, "w", false, "don't exit when the encoding has finished")
 
 	if len(os.Args) < 2 {
 		flag.Usage()
@@ -330,11 +332,15 @@ func main() {
 
 	// wait for above goroutines to finish, then exit.
 	wg.Wait()
+
+	// if the wait flag is set, don't exit
+	for Wait {
+
+	}
 }
 
 // encodeReader reads from the input
 func encodeReader() {
-
 	defer func() {
 		close(EncodeInputChan)
 		wg.Done()
@@ -406,7 +412,6 @@ func encodeReader() {
 // encoder listens on the EncodeInputChan and encodes provided PCM16 data
 // to opus, then sends the encoded data to the EncodeOutputChan
 func encoder() {
-
 	defer func() {
 		close(EncodeOutputChan)
 		wg.Done()
@@ -434,7 +439,6 @@ func encoder() {
 // encodeWriter listens on the EncodeOutputChan and writes the output to stdout pipe
 // TODO: Add support for writing directly to a file
 func encodeWriter() {
-
 	defer wg.Done()
 
 	var opuslen int16
@@ -491,7 +495,6 @@ func encodeWriter() {
 }
 
 func decodeReader() {
-	
 	defer func() {
 		close(DecodeInputChan)
 		wg.Done()
