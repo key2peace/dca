@@ -62,8 +62,8 @@ var (
 	// Discord only uses 48000 currently.
 	FrameRate int
 
-	// Rates from 500 to 512000 bits per second are meaningful
-	// Discord only uses 8000 to 128000 and default is 64000
+	// Rates from 1000 to 512000 bits per second are meaningful
+	// Discord only uses 8000 to 384000 and default is 64000
 	Bitrate int
 
 	// Must be one of voip, audio, or lowdelay.
@@ -109,7 +109,7 @@ func init() {
 	flag.IntVar(&Channels, "ac", 2, "audio channels")
 	flag.IntVar(&FrameRate, "ar", 48000, "audio sampling rate")
 	flag.IntVar(&FrameSize, "as", 960, "audio frame size can be 960 (20ms), 1920 (40ms), or 2880 (60ms)")
-	flag.IntVar(&Bitrate, "ab", 64, "audio encoding bitrate in kb/s can be 8 - 128")
+	flag.IntVar(&Bitrate, "ab", 64, "audio encoding bitrate in kb/s can be 1 - 512")
 	flag.BoolVar(&RawOutput, "raw", false, "Raw opus output (no metadata or magic bytes)")
 	flag.StringVar(&Application, "aa", "audio", "audio application can be voip, audio, or lowdelay")
 	flag.StringVar(&CoverFormat, "cf", "jpeg", "format the cover art will be encoded with")
